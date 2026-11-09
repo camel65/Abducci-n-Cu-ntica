@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abducción Cuántica Neón (Interactiva)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            cursor: default;
+        }
+
+        /* Botón de Inicio Centrado */
+        #btn-inicio {
+            padding: 18px 45px;
+            font-size: 1.6rem;
+            color: #ffffff;
+            background: transparent;
+            border: 2px solid #00ffcc;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.4);
+            z-index: 10;
+        }
+
+        #btn-inicio:hover {
+            background-color: #00ffcc;
+            color: #000000;
+            box-shadow: 0 0 35px rgba(0, 255, 204, 0.9);
+            transform: scale(1.08);
+        }
+
+        /* Controles Flotantes Superior Derecha */
+        .controles {
+            display: none;
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            gap: 12px;
+            z-index: 20;
+        }
+
+        .btn-control {
+            padding: 10px 22px;
+            font-size: 0.95rem;
+            color: #ffffff;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 255, 204, 0.5);
+            border-radius: 30px;
+            backdrop-filter: blur(5px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-control:hover {
+            background: #00ffcc;
+            color: #000000;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
+        }
+
+        #btn-salir:hover {
+            background: rgba(255, 0, 85, 0.9);
+            border-color: #ff0055;
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.8);
+        }
+
+        /* Contenedor del Lienzo */
+        #canvas-container {
+            display: none;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CAMBIA AQUÍ LA RUTA A TU ARCHIVO DE AUDIO -->
+    <audio id="miMusica" src="musica42.mp3" preload="auto" loop></audio>
+
+    <!-- Botón de Inicio -->
+    <button id="btn-inicio">Inicio</button>
+
+    <!-- Controles flotantes -->
+    <div class="controles" id="panel-controles">
+        <button class="btn-control" id="btn-audio">🔊 Sonido: ON</button>
+        <button class="btn-control" id="btn-salir">Salir</button>
+    </div>
+
+    <!-- Contenedor del lienzo -->
+    <div id="canvas-container">
+        <canvas id="abductionCanvas"></canvas>
+    </div>
+
+    <script>
+        const btnInicio = document.getElementById('btn-inicio');
+        const btnSalir = document.getElementById('btn-salir');
+        const btnAudio = document.getElementById('btn-audio');
+        const panelControles = document.getElementById('panel-controles');
+        const canvasContainer = document.getElementById('canvas-container');
+        const canvas = document.getElementById('abductionCanvas');
+        const ctx = canvas.getContext('2d');
+        const audioElement = document.getElementById('miMusica');
+
+        let animacionId = null;
+        let activo = false;
+        let tiempoInicio = 0;
+
+        let mouseX = 0;
+        let mouseY = 0;
+        let ufoX = 0;
+        let ufoY = 0;
+        let rayoActivo = false;
+
+        let entidades = [];
+        let particulas = [];
+        let contadorAbducidos = 0;
+
+        const NUM_ENTIDADES = 12;
+
+        function ajustarCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', () => {
+            if (activo) ajustarCanvas();
+        });
+
+        // Controles de puntero para seguimiento y activación del rayo
+        window.addEventListener('mousemove', (e) => {
+            if (activo) {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            }
+        });
+
+        window.addEventListener('mousedown', (e) => {
+            if (activo && e.target.tagName !== 'BUTTON') {
+                rayoActivo = true;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (activo) rayoActivo = false;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (activo && e.touches.length > 0) {
+                mouseX = e.touches[0].clientX;
+                mouseY = e.touches[0].clientY;
+            }
+        });
+
+        window.addEventListener('touchstart', (e) => {
+            if (activo && e.target.tagName !== 'BUTTON') {
+                rayoActivo = true;
+                if (e.touches.length > 0) {
+                    mouseX = e.touches[0].clientX;
+                    mouseY = e.touches[0].clientY;
+                }
+            }
+        });
+
+        window.addEventListener('touchend', () => {
+            if (activo) rayoActivo = false;
+        });
+
+        btnAudio.addEventListener('click', (e) => {
+            e.stopPropagation();
+            audioElement.muted = !audioElement.muted;
+            btnAudio.textContent = audioElement.muted ? "🔇 Sonido: OFF" : "🔊 Sonido: ON";
+        });
+
+        btnInicio.addEventListener('click', () => {
+            btnInicio.style.display = 'none';
+            panelControles.style.display = 'flex';
+            canvasContainer.style.display = 'block';
+
+            ajustarCanvas();
+            inicializarEscena();
+            activo = true;
+
+            audioElement.currentTime = 0;
+            audioElement.muted = false;
+            btnAudio.textContent = "🔊 Sonido: ON";
+            audioElement.play().catch(err => console.log(err));
+
+            iniciarAnimacion();
+        });
+
+        btnSalir.addEventListener('click', (e) => {
+            e.stopPropagation();
+            activo = false;
+            if (animacionId) cancelAnimationFrame(animacionId);
+
+            audioElement.pause();
+            audioElement.currentTime = 0;
+
+            canvasContainer.style.display = 'none';
+            panelControles.style.display = 'none';
+            btnInicio.style.display = 'block';
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        function inicializarEscena() {
+            tiempoInicio = Date.now();
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            mouseX = cx;
+            mouseY = cy - 80;
+            ufoX = cx;
+            ufoY = cy - 80;
+            contadorAbducidos = 0;
+            rayoActivo = false;
+
+            entidades = [];
+            for (let i = 0; i < NUM_ENTIDADES; i++) {
+                crearEntidad();
+            }
+
+            particulas = [];
+        }
+
+        function crearEntidad() {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const tamCuadrado = Math.min(canvas.width, canvas.height) * 0.72;
+
+            const tipos = ['CRISTAL', 'ALIEN', 'ESFERA'];
+            const tipo = tipos[Math.floor(Math.random() * tipos.length)];
+
+            entidades.push({
+                x: cx + (Math.random() - 0.5) * (tamCuadrado - 60),
+                y: cy + Math.random() * (tamCuadrado / 2 - 40),
+                vx: (Math.random() - 0.5) * 1.5,
+                vy: (Math.random() - 0.5) * 1.5,
+                tipo: tipo,
+                tam: 10 + Math.random() * 6,
+                hue: Math.floor(Math.random() * 360),
+                abducida: false
+            });
+        }
+
+        function generarExplotionLuminosa(x, y, hue) {
+            for (let i = 0; i < 25; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const vel = 2 + Math.random() * 6;
+                particulas.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(ang) * vel,
+                    vy: Math.sin(ang) * vel,
+                    vida: 1.0,
+                    hue: hue,
+                    tam: Math.random() * 3 + 1.5
+                });
+            }
+        }
+
+        function iniciarAnimacion() {
+            if (!activo) return;
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const ahora = Date.now();
+            const t = (ahora - tiempoInicio) * 0.001;
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            // Marco Cuadrado
+            const tamCuadrado = Math.min(canvas.width, canvas.height) * 0.75;
+            const leftSquare = cx - tamCuadrado / 2;
+            const topSquare = cy - tamCuadrado / 2;
+
+            // 1. DIBUJAR MARCO CUADRADO DE NEÓN
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.lineWidth = 2.5;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = '#ffffff';
+            ctx.strokeRect(leftSquare, topSquare, tamCuadrado, tamCuadrado);
+            ctx.restore();
+
+            // Delimitar dentro del marco cuadrado
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(leftSquare + 2, topSquare + 2, tamCuadrado - 4, tamCuadrado - 4);
+            ctx.clip();
+
+            // 2. SEGUIMIENTO SUAVE DEL OVNI DENTRO DEL CUADRADO
+            let limitMouseX = Math.max(leftSquare + 45, Math.min(leftSquare + tamCuadrado - 45, mouseX));
+            let limitMouseY = Math.max(topSquare + 45, Math.min(topSquare + tamCuadrado - 45, mouseY));
+
+            ufoX += (limitMouseX - ufoX) * 0.1;
+            ufoY += (limitMouseY - ufoY) * 0.1;
+
+            const baseAncho = 90;
+            const rayoLargo = 260;
+
+            // 3. DIBUJAR RAYO TRACTOR SOLO CUANDO ESTÁ ACTIVO
+            if (rayoActivo) {
+                const rayoGrad = ctx.createLinearGradient(ufoX, ufoY + 10, ufoX, ufoY + 10 + rayoLargo);
+                const hueRayo = (t * 40) % 360;
+
+                rayoGrad.addColorStop(0, `hsla(${hueRayo}, 100%, 65%, 0.85)`);
+                rayoGrad.addColorStop(0.5, `hsla(${hueRayo}, 100%, 50%, 0.45)`);
+                rayoGrad.addColorStop(1, `hsla(${hueRayo}, 100%, 50%, 0.0)`);
+
+                ctx.fillStyle = rayoGrad;
+                ctx.beginPath();
+                ctx.moveTo(ufoX - 12, ufoY + 10);
+                ctx.lineTo(ufoX + 12, ufoY + 10);
+                ctx.lineTo(ufoX + baseAncho / 2, ufoY + 10 + rayoLargo);
+                ctx.lineTo(ufoX - baseAncho / 2, ufoY + 10 + rayoLargo);
+                ctx.closePath();
+                ctx.fill();
+
+                // Líneas pulsantes del haz
+                ctx.strokeStyle = `hsla(${hueRayo}, 100%, 80%, 0.6)`;
+                ctx.lineWidth = 1.2;
+                for (let i = -2; i <= 2; i++) {
+                    const offsetX = i * 15;
+                    ctx.beginPath();
+                    ctx.moveTo(ufoX + offsetX * 0.2, ufoY + 10);
+                    ctx.lineTo(ufoX + offsetX, ufoY + 10 + rayoLargo);
+                    ctx.stroke();
+                }
+            }
+
+            // 4. ACTUALIZAR ENTIDADES (Física de Abducción)
+            for (let i = entidades.length - 1; i >= 0; i--) {
+                const e = entidades[i];
+
+                e.x += e.vx;
+                e.y += e.vy;
+
+                // Rebote en los bordes del marco cuadrado
+                if (e.x < leftSquare + 20 || e.x > leftSquare + tamCuadrado - 20) {
+                    e.vx *= -1;
+                    e.x = Math.max(leftSquare + 20, Math.min(leftSquare + tamCuadrado - 20, e.x));
+                }
+                if (e.y < topSquare + 20 || e.y > topSquare + tamCuadrado - 20) {
+                    e.vy *= -1;
+                    e.y = Math.max(topSquare + 20, Math.min(topSquare + tamCuadrado - 20, e.y));
+                }
+
+                // Detección de captura con el rayo tractor activo
+                if (rayoActivo) {
+                    const relY = e.y - (ufoY + 10);
+                    if (relY > 0 && relY < rayoLargo) {
+                        const anchoEnY = 24 + (baseAncho - 24) * (relY / rayoLargo);
+                        if (Math.abs(e.x - ufoX) < anchoEnY / 2) {
+                            e.abducida = true;
+                        }
+                    }
+                } else {
+                    e.abducida = false;
+                }
+
+                // Atracción magnética si está dentro del haz de luz
+                if (e.abducida && rayoActivo) {
+                    const dx = ufoX - e.x;
+                    const dy = (ufoY + 10) - e.y;
+                    const distAbduct = Math.sqrt(dx * dx + dy * dy);
+
+                    e.x += dx * 0.14;
+                    e.y += dy * 0.14;
+                    e.tam *= 0.95;
+
+                    if (distAbduct < 15 || e.tam < 2) {
+                        generarExplotionLuminosa(ufoX, ufoY + 10, e.hue);
+                        contadorAbducidos++;
+                        entidades.splice(i, 1);
+                        crearEntidad();
+                        continue;
+                    }
+                }
+
+                // Renderizar la entidad
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                ctx.fillStyle = `hsl(${e.hue}, 100%, 65%)`;
+                ctx.strokeStyle = '#ffffff';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = `hsl(${e.hue}, 100%, 50%)`;
+                ctx.lineWidth = 1.5;
+
+                if (e.tipo === 'CRISTAL') {
+                    ctx.beginPath();
+                    ctx.moveTo(0, -e.tam);
+                    ctx.lineTo(e.tam * 0.7, 0);
+                    ctx.lineTo(0, e.tam);
+                    ctx.lineTo(-e.tam * 0.7, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (e.tipo === 'ALIEN') {
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, e.tam * 0.8, e.tam * 1.1, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(-e.tam * 0.3, -e.tam * 0.2, 2.5, 0, Math.PI * 2);
+                    ctx.arc(e.tam * 0.3, -e.tam * 0.2, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, e.tam * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            // 5. RENDERIZAR PARTICULAS
+            ctx.save();
+            for (let i = particulas.length - 1; i >= 0; i--) {
+                const p = particulas[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vida -= 0.04;
+
+                if (p.vida <= 0) {
+                    particulas.splice(i, 1);
+                    continue;
+                }
+
+                ctx.globalAlpha = p.vida;
+                ctx.fillStyle = `hsl(${p.hue}, 100%, 65%)`;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = `hsl(${p.hue}, 100%, 50%)`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.tam, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // 6. DIBUJAR OVNI
+            ctx.save();
+            ctx.translate(ufoX, ufoY);
+
+            ctx.fillStyle = rayoActivo ? '#00ffcc' : '#506070';
+            ctx.shadowBlur = rayoActivo ? 20 : 5;
+            ctx.shadowColor = rayoActivo ? '#00ffcc' : '#304050';
+            ctx.beginPath();
+            ctx.ellipse(0, -6, 20, 14, 0, 0, Math.PI, true);
+            ctx.fill();
+
+            const gradPlatillo = ctx.createLinearGradient(-45, -5, 45, 10);
+            gradPlatillo.addColorStop(0, '#303840');
+            gradPlatillo.addColorStop(0.5, '#ffffff');
+            gradPlatillo.addColorStop(1, '#20252b');
+
+            ctx.fillStyle = gradPlatillo;
+            ctx.beginPath();
+            ctx.ellipse(0, 2, 45, 11, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            for (let i = 0; i < 6; i++) {
+                const ang = (i / 6) * Math.PI * 2;
+                const lx = Math.cos(ang) * 38;
+                const ly = 3 + Math.sin(ang) * 5;
+                ctx.fillStyle = rayoActivo ? ((i % 2 === 0) ? '#00ffcc' : '#ff007f') : '#808080';
+                ctx.shadowBlur = rayoActivo ? 8 : 0;
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.beginPath();
+                ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+
+            // 7. MARCADOR CENTRADO DENTRO DEL CUADRADO
+            ctx.save();
+            ctx.font = 'bold 20px "Segoe UI", sans-serif';
+            ctx.fillStyle = '#00ffcc';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#00ffcc';
+            ctx.fillText(`ABDUCCIONES: ${contadorAbducidos}`, cx, topSquare + 35);
+            ctx.restore();
+
+            ctx.restore(); // Fin del marco cuadrado
+
+            animacionId = requestAnimationFrame(iniciarAnimacion);
+        }
+    </script>
+</body>
+</html>
